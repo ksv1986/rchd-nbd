@@ -7,4 +7,5 @@ keywords = ["nbd", "network-block-device", "chd"]
 edition = "2018"
 
 [dependencies]
+chd =  { version = "0.1", path = "chd", features = ["write_nop"] }
 nbd = "0.2.3"

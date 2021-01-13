@@ -1,0 +1,3 @@
+[submodule "chd"]
+	path = chd
+	url = https://github.com/ksv1986/chd-rs.git
