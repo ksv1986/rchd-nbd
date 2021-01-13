@@ -1,29 +1,39 @@
 extern crate nbd;
 
-use std::io::{Cursor, Result};
+use std::fs::File;
+use std::io;
+use std::io::{Read, Result, Seek, Write};
 use std::net::{TcpListener, TcpStream};
 
+use chd::Chd;
 use nbd::server::{handshake, transmission, Export};
 
-fn handle_client(data: &mut [u8], mut stream: TcpStream) -> Result<()> {
+fn handle_client<T>(file: &mut T, size: u64, mut stream: TcpStream) -> Result<()>
+where
+    T: Read + Seek + Write,
+{
     let e = Export {
-        size: data.len() as u64,
+        size,
         readonly: false,
         ..Default::default()
     };
-    let pseudofile = Cursor::new(data);
     handshake(&mut stream, &e)?;
-    transmission(&mut stream, pseudofile)?;
+    transmission(&mut stream, file)?;
     Ok(())
 }
 
-fn main() {
-    let mut data = vec![0; 1_474_560];
-    let listener = TcpListener::bind("127.0.0.1:10809").unwrap();
+fn main() -> io::Result<()> {
+    let path = std::env::args_os()
+        .nth(1)
+        .expect("Usage: rchd-nbd <chd-file>");
+    let mut chd = Chd::open(File::open(path)?)?;
+    chd.write_summary(&mut std::io::stdout())?;
+    let size = chd.size();
 
+    let listener = TcpListener::bind("127.0.0.1:10809").unwrap();
     for stream in listener.incoming() {
         match stream {
-            Ok(stream) => match handle_client(&mut data, stream) {
+            Ok(stream) => match handle_client(&mut chd, size, stream) {
                 Ok(_) => {}
                 Err(e) => {
                     eprintln!("error: {}", e);
@@ -34,4 +44,5 @@ fn main() {
             }
         }
     }
+    Ok(())
 }
