@@ -25,9 +25,17 @@ where
 fn main() -> io::Result<()> {
     let path = std::env::args_os()
         .nth(1)
-        .expect("Usage: rchd-nbd <chd-file>");
+        .expect("Usage: rchd-nbd <chd-file> [parent-chd-file]");
     let mut chd = Chd::open(File::open(path)?)?;
     chd.write_summary(&mut std::io::stdout())?;
+    println!("");
+    if let Some(parent_path) = std::env::args_os().nth(2) {
+        let parent = Chd::open(File::open(parent_path)?)?;
+        println!("Using parent chd file:");
+        parent.write_summary(&mut std::io::stdout())?;
+        println!("");
+        chd.set_parent(parent)?;
+    }
     let size = chd.size();
 
     let listener = TcpListener::bind("127.0.0.1:10809").unwrap();
