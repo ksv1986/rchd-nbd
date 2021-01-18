@@ -3,12 +3,12 @@ extern crate nbd;
 use std::fs::File;
 use std::io;
 use std::io::{Read, Result, Seek, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream};
 
 use chd::Chd;
 use nbd::server::{handshake, transmission, Export};
 
-fn handle_client<T>(file: &mut T, size: u64, mut stream: TcpStream) -> Result<()>
+fn handle_client<T>(file: &mut T, size: u64, mut stream: TcpStream) -> Result<SocketAddr>
 where
     T: Read + Seek + Write,
 {
@@ -17,9 +17,16 @@ where
         readonly: false,
         ..Default::default()
     };
+    let address = stream
+        .local_addr()
+        .unwrap_or(SocketAddr::V4(SocketAddrV4::new(
+            Ipv4Addr::new(0, 0, 0, 0),
+            0,
+        )));
+    println!("accepted new client from {}", address);
     handshake(&mut stream, &e)?;
     transmission(&mut stream, file)?;
-    Ok(())
+    Ok(address)
 }
 
 fn main() -> io::Result<()> {
@@ -42,7 +49,9 @@ fn main() -> io::Result<()> {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => match handle_client(&mut chd, size, stream) {
-                Ok(_) => {}
+                Ok(address) => {
+                    println!("client {} disconnected", address);
+                }
                 Err(e) => {
                     eprintln!("error: {}", e);
                 }
